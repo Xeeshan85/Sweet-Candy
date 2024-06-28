@@ -157,6 +157,18 @@ void animateRemoval(std::vector<std::vector<sf::Sprite>>& grid, const std::vecto
     }
 }
 
+void highlightTile(sf::RenderWindow& window, const std::vector<std::vector<sf::Sprite>>& grid, int gridSize, int tileSize, sf::RectangleShape& highlight) {
+    sf::Vector2i mousePos = sf::Mouse::getPosition(window);
+    int hoverI = (mousePos.y - 230) / tileSize;
+    int hoverJ = (mousePos.x - 220) / tileSize;
+
+    if (hoverI >= 0 && hoverI < gridSize && hoverJ >= 0 && hoverJ < gridSize) {
+        highlight.setPosition(220 + hoverJ * tileSize, 230 + hoverI * tileSize);
+        window.draw(highlight);
+    }
+}
+
+
 // Function to check if two tiles are adjacent
 bool areAdjacent(const sf::Vector2i& tile1, const sf::Vector2i& tile2) {
     return (tile1.x == tile2.x && abs(tile1.y - tile2.y) == 1) || (tile1.y == tile2.y && abs(tile1.x - tile2.x) == 1);
@@ -175,15 +187,23 @@ int main()
     window.setVerticalSyncEnabled(true);
 
     // Load assets
-    sf::Texture startTexture, backgroundTexture, gameBackgroundTexture, buttonTexture, m1buttonTexture, m2buttonTexture;
-    sf::Sprite startSprite, backgroundSprite, gameBackgroundSprite, playButtonSprite, scoreButtonSprite, exitButtonSprite, insButtonSprite, settingsButtonSprite;
+    sf::Texture startTexture, backgroundTexture, gameBackgroundTexture, settingsBGTexture, pauseBGTexture, buttonTexture, m1buttonTexture, m2buttonTexture, homeButtonTexture, soundButtonTexture, noSoundButtonTexture, restartButtonTexture, resumeButtonTexture, pauseButtonTexture;
+    sf::Sprite startSprite, backgroundSprite, gameBackgroundSprite, settingsBGSprite, pauseBGSprite, playButtonSprite, scoreButtonSprite, exitButtonSprite, insButtonSprite, settingsButtonSprite, homeButtonSprite, soundButtonSprite, noSoundButtonSprite, restartButtonSprite, resumeButtonSprite, pauseButtonSprite;
 
     if (!startTexture.loadFromFile("images/start.jpg") ||
         !backgroundTexture.loadFromFile("images/menuBackground.jpg") ||
         !gameBackgroundTexture.loadFromFile("images/gameBackground.jpg") ||
         !buttonTexture.loadFromFile("images/button1.png") ||
         !m1buttonTexture.loadFromFile("images/ibutton.png") ||
-        !m2buttonTexture.loadFromFile("images/settings.png"))
+        !m2buttonTexture.loadFromFile("images/settings.png") ||
+        !settingsBGTexture.loadFromFile("images/settingsBackground.jpg") ||
+        !pauseBGTexture.loadFromFile("images/pauseBackground.jpg") ||
+        !homeButtonTexture.loadFromFile("images/home2.png") ||
+        !soundButtonTexture.loadFromFile("images/sound2.png") ||
+        !noSoundButtonTexture.loadFromFile("images/noSound2.png") ||
+        !restartButtonTexture.loadFromFile("images/restart.png") ||
+        !resumeButtonTexture.loadFromFile("images/resume.png") ||
+        !pauseButtonTexture.loadFromFile("images/pause.png"))
     {
         return EXIT_FAILURE;
     }
@@ -196,10 +216,20 @@ int main()
     exitButtonSprite.setTexture(buttonTexture);
     insButtonSprite.setTexture(m1buttonTexture);
     settingsButtonSprite.setTexture(m2buttonTexture);
+    settingsBGSprite.setTexture(settingsBGTexture);
+    pauseBGSprite.setTexture(pauseBGTexture);
+    homeButtonSprite.setTexture(homeButtonTexture);
+    soundButtonSprite.setTexture(soundButtonTexture);
+    noSoundButtonSprite.setTexture(noSoundButtonTexture);
+    restartButtonSprite.setTexture(restartButtonTexture);
+    resumeButtonSprite.setTexture(resumeButtonTexture);
+    pauseButtonSprite.setTexture(pauseButtonTexture);
 
     scaleSpriteToWindow(startSprite, window);
     scaleSpriteToWindow(backgroundSprite, window);
     scaleSpriteToWindow(gameBackgroundSprite, window);
+    scaleSpriteToWindow(settingsBGSprite, window);
+    scaleSpriteToWindow(pauseBGSprite, window);
 
     // Set positions
     playButtonSprite.setPosition(315, 250);
@@ -207,6 +237,19 @@ int main()
     exitButtonSprite.setPosition(315, 450);
     insButtonSprite.setPosition(370, 550);
     settingsButtonSprite.setPosition(460, 550);
+
+    restartButtonSprite.setPosition(370, 250);
+    resumeButtonSprite.setPosition(540, 250);
+
+    pauseButtonSprite.setPosition(450, 150);
+
+    homeButtonSprite.setPosition(200, 250);
+    soundButtonSprite.setPosition(370, 250);
+    noSoundButtonSprite.setPosition(540, 250);
+    backgroundSprite.setPosition(
+        (window.getSize().x - backgroundSprite.getGlobalBounds().width) / 2.f,
+        (window.getSize().y - 30 - backgroundSprite.getGlobalBounds().height) / 2.f
+    );
 
 
     sf::Font font;
@@ -261,6 +304,11 @@ int main()
     // Create Grid
     const int gridSize = 9;
     const int tileSize = 55;
+
+    // Create a rectangle for highlighting
+    sf::RectangleShape highlight(sf::Vector2f(tileSize, tileSize));
+    highlight.setFillColor(sf::Color(255, 255, 255, 100)); // Semi-transparent white
+    
     std::vector<std::vector<sf::Sprite>> grid(gridSize, std::vector<sf::Sprite>(gridSize));
     for (int i = 0; i < gridSize; i++) {
         for (int j = 0; j < gridSize; j++) {
@@ -281,6 +329,7 @@ int main()
     sf::Vector2i firstClick(-1, -1);
     sf::Vector2i secondClick(-1, -1);
     sf::Clock gameClock;
+    bool soundCheck = true;
 
     while (window.isOpen())
     {
@@ -294,6 +343,7 @@ int main()
             {
                 sf::Vector2i mousePos = sf::Mouse::getPosition(window);
                 std::cout << "Mouse position: (" << mousePos.x << ", " << mousePos.y << ")" << std::endl;
+
                 if (switched == 1) {
                     if (exitButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
                     {
@@ -303,18 +353,30 @@ int main()
                     {
                         switched = 2; // 2 = PLAY Game
                         backgroundMusic.stop();
-                        gameMusic.setLoop(true);
-                        gameMusic.play();
+                        if (soundCheck) {
+                            gameMusic.setLoop(true);
+                            gameMusic.play();
+                        }
                     }
                     else if (scoreButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
                     {
                         switched = 3; // 3 = SCORE 
+                    }
+                    else if (settingsBGSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        switched = 4; // 4 = SETTINGS
                     }
                 }
                 else if (switched == 2)
                 {
                     int clickedI = (mousePos.y - 230) / tileSize;
                     int clickedJ = (mousePos.x - 220) / tileSize;
+
+                    // Pause Button
+                    if (pauseButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos))) 
+                    {
+                        switched = 5; // PAUSE GAME
+                    }
 
                     if (clickedI >= 0 && clickedI < gridSize && clickedJ >= 0 && clickedJ < gridSize) {
                         if (firstClick == sf::Vector2i(-1, -1)) {
@@ -357,6 +419,54 @@ int main()
                         secondClick = sf::Vector2i(-1, -1);
                     }
                 }
+                else if (switched == 4)
+                {
+                    if (homeButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        switched = 1; // Home Screen
+                    }
+                    else if (soundButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos))) 
+                    {
+                        if (!soundCheck) {
+                            backgroundMusic.setLoop(true);
+                            backgroundMusic.play();
+                        }
+                        soundCheck = true;
+                    }
+                    else if (noSoundButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        if (soundCheck) {
+                            backgroundMusic.stop();
+                        }
+                        soundCheck = false;
+                    }
+                }
+                else if (switched == 5)
+                {
+                    if (homeButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        switched = 1; // Home Screen
+                    }
+                    else if (resumeButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        switched = 2; // Resume GAME Screen
+                    }
+                    else if (restartButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        switched = 2; // Restart WITH NEW GRID Screen
+                        for (int i = 0; i < gridSize; i++) {
+                            for (int j = 0; j < gridSize; j++) {
+                                int randomIndex = rand() % (candyTextures.size() - 1);
+                                grid[i][j].setTexture(candyTextures[randomIndex]);
+                                grid[i][j].setPosition(220 + j * tileSize, 230 + i * tileSize);
+                            }
+                        }
+                    }
+                }
+                else 
+                {
+                    std::cout << "Invalid Switch Value\n";
+                }
 
             }
         }
@@ -366,8 +476,10 @@ int main()
         {
             switched = 1; // 1 = MENU Screen
             startMusic.stop();
-            backgroundMusic.setLoop(true);
-            backgroundMusic.play();
+            if (soundCheck) {
+                backgroundMusic.setLoop(true);
+                backgroundMusic.play();
+            }
         }
 
         window.clear();
@@ -392,6 +504,7 @@ int main()
             break;
         case 2: // Play Screen
             window.draw(gameBackgroundSprite);
+            window.draw(pauseButtonSprite);
 
             if (!isRemoving && fallingCandies.empty()) {
                 // Detect matches
@@ -414,12 +527,10 @@ int main()
             }
             else if (isRemoving) {
                 float removalTime = removalClock.getElapsedTime().asSeconds();
-                if (removalTime < 0.5f) {  // Reduced from 1.0f to 0.5f for faster removal
-                    // Animate removal
+                if (removalTime < 0.5f) {
                     animateRemoval(grid, matches, dt);
                 }
                 else {
-                    // Remove matches and initiate falling candies
                     removeMatches(grid, candyTextures, matches, fallingCandies);
                     isRemoving = false;
                 }
@@ -439,9 +550,27 @@ int main()
                 }
             }
 
+            // Highlight the tile under the mouse cursor
+            highlightTile(window, grid, gridSize, tileSize, highlight);
+
             break;
         case 3: // Score Screen
             // Score screen drawing code
+            break;
+        case 4:
+            window.draw(settingsBGSprite);
+            window.draw(homeButtonSprite);
+            window.draw(soundButtonSprite);
+            window.draw(noSoundButtonSprite);
+
+            break;
+        case 5:
+            window.draw(pauseBGSprite);
+            window.draw(homeButtonSprite);
+            window.draw(resumeButtonSprite);
+            window.draw(restartButtonSprite);
+            //window.draw(settingsButtonSprite);
+
             break;
         }
 
