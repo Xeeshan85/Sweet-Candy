@@ -12,6 +12,8 @@ struct FallingCandy {
     float speed;
 };
 
+int score = 0;
+
 // Function to scale a sprite to fit the window
 void scaleSpriteToWindow(sf::Sprite& sprite, const sf::RenderWindow& window) {
     float scaleX = static_cast<float>(window.getSize().x) / sprite.getLocalBounds().width;
@@ -54,18 +56,20 @@ std::vector<std::vector<bool>> detectMatches(const std::vector<std::vector<sf::S
 void removeMatches(std::vector<std::vector<sf::Sprite>>& grid, const std::vector<sf::Texture>& candyTextures, std::vector<std::vector<bool>>& toRemove, std::vector<FallingCandy>& fallingCandies) {
     const int gridSize = grid.size();
     const int tileSize = 55;
+    int candiesRemoved = 0;
 
     for (int j = 0; j < gridSize; j++) {
         int emptySpaces = 0;
         for (int i = gridSize - 1; i >= 0; i--) {
             if (toRemove[i][j]) {
                 emptySpaces++;
+                candiesRemoved++;
             }
             else if (emptySpaces > 0) {
                 FallingCandy fallingCandy;
                 fallingCandy.sprite = grid[i][j];
                 fallingCandy.targetY = 230 + (i + emptySpaces) * tileSize;
-                fallingCandy.speed = 100.0f; // pixels per second
+                fallingCandy.speed = 500.0f; // pixels per second
                 fallingCandies.push_back(fallingCandy);
 
                 grid[i + emptySpaces][j] = grid[i][j];
@@ -80,13 +84,14 @@ void removeMatches(std::vector<std::vector<sf::Sprite>>& grid, const std::vector
             fallingCandy.sprite.setTexture(candyTextures[randomIndex]);
             fallingCandy.sprite.setPosition(220 + j * tileSize, 230 - (emptySpaces - i) * tileSize);
             fallingCandy.targetY = 230 + i * tileSize;
-            fallingCandy.speed = 200.0f; // pixels per second
+            fallingCandy.speed = 500.0f; // pixels per second
             fallingCandies.push_back(fallingCandy);
 
             grid[i][j].setTexture(*fallingCandy.sprite.getTexture());
             grid[i][j].setPosition(220 + j * tileSize, 230 + i * tileSize);
         }
     }
+    score += candiesRemoved * 5;
 }
 
 bool updateFallingCandies(std::vector<FallingCandy>& fallingCandies, std::vector<std::vector<sf::Sprite>>& grid, float dt) {
@@ -145,6 +150,7 @@ void updateGridFromSprites(std::vector<std::vector<sf::Sprite>>& grid) {
 void animateRemoval(std::vector<std::vector<sf::Sprite>>& grid, const std::vector<std::vector<bool>>& toRemove, float dt) {
     const float fadeSpeed = 255.0f / 0.5f;  // Fade out in 0.5 seconds
     const int gridSize = grid.size();
+    int candiesRemoved = 0;
 
     for (int i = 0; i < gridSize; i++) {
         for (int j = 0; j < gridSize; j++) {
@@ -181,14 +187,30 @@ void swapTiles(sf::Sprite& tile1, sf::Sprite& tile2) {
     tile2.setTexture(*tempTexture);
 }
 
+void createRandomGrid(std::vector<std::vector<sf::Sprite>>& grid, const std::vector<sf::Texture>& candyTextures, const int tileSize) {
+    const int gridSize = grid.size();
+
+    srand(static_cast<unsigned>(time(0)));
+    for (int i = 0; i < gridSize; i++) {
+        for (int j = 0; j < gridSize; j++) {
+            int randomIndex = rand() % (candyTextures.size() - 1);
+            grid[i][j].setTexture(candyTextures[randomIndex]);
+            grid[i][j].setPosition(220 + j * tileSize, 230 + i * tileSize);
+        }
+    }
+}
+
 int main()
 {
+    int musicIndex = 0;
     sf::RenderWindow window(sf::VideoMode(900, 900), "CANDY CRUSH!");
     window.setVerticalSyncEnabled(true);
 
     // Load assets
-    sf::Texture startTexture, backgroundTexture, gameBackgroundTexture, settingsBGTexture, pauseBGTexture, buttonTexture, m1buttonTexture, m2buttonTexture, homeButtonTexture, soundButtonTexture, noSoundButtonTexture, restartButtonTexture, resumeButtonTexture, pauseButtonTexture;
-    sf::Sprite startSprite, backgroundSprite, gameBackgroundSprite, settingsBGSprite, pauseBGSprite, playButtonSprite, scoreButtonSprite, exitButtonSprite, insButtonSprite, settingsButtonSprite, homeButtonSprite, soundButtonSprite, noSoundButtonSprite, restartButtonSprite, resumeButtonSprite, pauseButtonSprite;
+    std::vector<sf::Texture> barTexture(4);
+    std::vector<sf::Sprite> barSprite(4);
+    sf::Texture startTexture, backgroundTexture, gameBackgroundTexture, settingsBGTexture, pauseBGTexture, buttonTexture, m1buttonTexture, m2buttonTexture, homeButtonTexture, soundButtonTexture, noSoundButtonTexture, restartButtonTexture, resumeButtonTexture, pauseButtonTexture, scoreBoardTexture, failStarTexture, successStarTexture;
+    sf::Sprite startSprite, backgroundSprite, gameBackgroundSprite, settingsBGSprite, pauseBGSprite, playButtonSprite, scoreButtonSprite, exitButtonSprite, insButtonSprite, settingsButtonSprite, homeButtonSprite, soundButtonSprite, noSoundButtonSprite, restartButtonSprite, resumeButtonSprite, pauseButtonSprite, scoreBoardSprite, failStarSprite, successStarSprite, timerBoardSprite;
 
     if (!startTexture.loadFromFile("images/start.jpg") ||
         !backgroundTexture.loadFromFile("images/menuBackground.jpg") ||
@@ -203,7 +225,14 @@ int main()
         !noSoundButtonTexture.loadFromFile("images/noSound2.png") ||
         !restartButtonTexture.loadFromFile("images/restart.png") ||
         !resumeButtonTexture.loadFromFile("images/resume.png") ||
-        !pauseButtonTexture.loadFromFile("images/pause.png"))
+        !pauseButtonTexture.loadFromFile("images/pause1.png") ||
+        !scoreBoardTexture.loadFromFile("images/scoreBoard1.png") ||
+        !barTexture[0].loadFromFile("images/bar1.png") ||
+        !barTexture[1].loadFromFile("images/bar2.png") ||
+        !barTexture[2].loadFromFile("images/bar3.png") ||
+        !barTexture[3].loadFromFile("images/bar4.png") ||
+        !failStarTexture.loadFromFile("images/starFail.png") ||
+        !successStarTexture.loadFromFile("images/starSuccess.png"))
     {
         return EXIT_FAILURE;
     }
@@ -224,6 +253,14 @@ int main()
     restartButtonSprite.setTexture(restartButtonTexture);
     resumeButtonSprite.setTexture(resumeButtonTexture);
     pauseButtonSprite.setTexture(pauseButtonTexture);
+    scoreBoardSprite.setTexture(scoreBoardTexture);
+    failStarSprite.setTexture(failStarTexture);
+    successStarSprite.setTexture(successStarTexture);
+    barSprite[0].setTexture(barTexture[0]);
+    barSprite[1].setTexture(barTexture[1]);
+    barSprite[2].setTexture(barTexture[2]);
+    barSprite[3].setTexture(barTexture[3]);
+    timerBoardSprite.setTexture(scoreBoardTexture);
 
     scaleSpriteToWindow(startSprite, window);
     scaleSpriteToWindow(backgroundSprite, window);
@@ -237,19 +274,24 @@ int main()
     exitButtonSprite.setPosition(315, 450);
     insButtonSprite.setPosition(370, 550);
     settingsButtonSprite.setPosition(460, 550);
-
-    restartButtonSprite.setPosition(370, 250);
+    restartButtonSprite.setPosition(520, 350);
     resumeButtonSprite.setPosition(540, 250);
-
-    pauseButtonSprite.setPosition(450, 150);
-
+    pauseButtonSprite.setPosition(590, 60);
     homeButtonSprite.setPosition(200, 250);
     soundButtonSprite.setPosition(370, 250);
     noSoundButtonSprite.setPosition(540, 250);
+    scoreBoardSprite.setPosition(680, 60);
+    timerBoardSprite.setPosition(30, 60);
+
+    failStarSprite.setPosition(440, 210);
+    successStarSprite.setPosition(440, 210);
     backgroundSprite.setPosition(
         (window.getSize().x - backgroundSprite.getGlobalBounds().width) / 2.f,
         (window.getSize().y - 30 - backgroundSprite.getGlobalBounds().height) / 2.f
     );
+    for (auto& b : barSprite) {
+        b.setPosition(270, 750);
+    }
 
 
     sf::Font font;
@@ -258,11 +300,15 @@ int main()
 
     sf::Text playText("PLAY", font, 30);
     sf::Text scoreText("SCORE", font, 30);
+    sf::Text scoreText1("SCORE: ", font, 30);
     sf::Text exitText("EXIT", font, 30);
+    sf::Text timerText("TIME", font, 30);
 
     playText.setFillColor(sf::Color::White);
     scoreText.setFillColor(sf::Color::White);
+    scoreText1.setFillColor(sf::Color::White);
     exitText.setFillColor(sf::Color::White);
+    timerText.setFillColor(sf::Color::White);
 
     playText.setPosition(
         playButtonSprite.getPosition().x + (playButtonSprite.getGlobalBounds().width - playText.getGlobalBounds().width) / 2.f,
@@ -276,17 +322,33 @@ int main()
         exitButtonSprite.getPosition().x + (exitButtonSprite.getGlobalBounds().width - exitText.getGlobalBounds().width) / 2.f,
         exitButtonSprite.getPosition().y - 10 + (exitButtonSprite.getGlobalBounds().height - exitText.getGlobalBounds().height) / 2.f
     );
+    scoreText1.setPosition(
+        scoreBoardSprite.getPosition().x - 25 + (scoreBoardSprite.getGlobalBounds().width - scoreText1.getGlobalBounds().width) / 2.f,
+        scoreBoardSprite.getPosition().y - 10 + (scoreBoardSprite.getGlobalBounds().height - scoreText1.getGlobalBounds().height) / 2.f
+    );
+    timerText.setPosition(
+        timerBoardSprite.getPosition().x - 25 + (timerBoardSprite.getGlobalBounds().width - timerText.getGlobalBounds().width) / 2.f,
+        timerBoardSprite.getPosition().y - 10 + (timerBoardSprite.getGlobalBounds().height - timerText.getGlobalBounds().height) / 2.f
+    );
 
     // Load music
-    sf::Music startMusic, backgroundMusic, gameMusic;
-    if (!startMusic.openFromFile("audio/intro.mp3") ||
+    std::vector<sf::Music> popMusics(5);
+    sf::Music startMusic, backgroundMusic, gameMusic, successMusic, failureMusic;
+    if (!startMusic.openFromFile("audio/intro2.mp3") ||
         !backgroundMusic.openFromFile("audio/Theme.mp3") ||
-        !gameMusic.openFromFile("audio/gameMusic.mp3"))
+        !gameMusic.openFromFile("audio/gameMusic.mp3") ||
+        !successMusic.openFromFile("audio/Celebration.mp3") ||
+        !failureMusic.openFromFile("audio/Failure.mp3") ||
+        !popMusics[0].openFromFile("audio/pop1.mp3") ||
+        !popMusics[1].openFromFile("audio/pop2.mp3") ||
+        !popMusics[2].openFromFile("audio/pop3.mp3") ||
+        !popMusics[3].openFromFile("audio/pop4.mp3") ||
+        !popMusics[4].openFromFile("audio/pop5.mp3"))
     {
         return EXIT_FAILURE;
     }
 
-    startMusic.setLoop(true);
+    //startMusic.setLoop(true);
     startMusic.play();
 
 
@@ -310,13 +372,7 @@ int main()
     highlight.setFillColor(sf::Color(255, 255, 255, 100)); // Semi-transparent white
     
     std::vector<std::vector<sf::Sprite>> grid(gridSize, std::vector<sf::Sprite>(gridSize));
-    for (int i = 0; i < gridSize; i++) {
-        for (int j = 0; j < gridSize; j++) {
-            int randomIndex = rand() % (candyTextures.size() - 1);
-            grid[i][j].setTexture(candyTextures[randomIndex]);
-            grid[i][j].setPosition(220 + j * tileSize, 230 + i * tileSize);
-        }
-    }
+    //createRandomGrid(grid, candyTextures, tileSize);
 
     sf::Clock clock;
     int switched = 0;
@@ -330,6 +386,18 @@ int main()
     sf::Vector2i secondClick(-1, -1);
     sf::Clock gameClock;
     bool soundCheck = true;
+
+    sf::Clock gameTimerClock;
+    const sf::Time maxGameTime = sf::seconds(600); // 5 minutes
+    int targetScore = 5000;
+    sf::Time elapsedPausedTime;
+    bool isTimePaused = false; // Flag to check if the timer is paused
+
+    int remainingSeconds = 0;
+    int minutes = 0;
+    int seconds = 0;
+    sf::Time remainingTime;
+
 
     while (window.isOpen())
     {
@@ -352,11 +420,16 @@ int main()
                     else if (playButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
                     {
                         switched = 2; // 2 = PLAY Game
+                        createRandomGrid(grid, candyTextures, tileSize);
                         backgroundMusic.stop();
                         if (soundCheck) {
                             gameMusic.setLoop(true);
                             gameMusic.play();
                         }
+
+                        gameTimerClock.restart();
+                        elapsedPausedTime = sf::Time::Zero;
+                        isTimePaused = false;
                     }
                     else if (scoreButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
                     {
@@ -375,6 +448,11 @@ int main()
                     // Pause Button
                     if (pauseButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos))) 
                     {
+                        if (!isTimePaused) {
+                            elapsedPausedTime += gameTimerClock.getElapsedTime();
+                            gameTimerClock.restart();
+                            isTimePaused = true;
+                        }
                         switched = 5; // PAUSE GAME
                     }
 
@@ -446,21 +524,80 @@ int main()
                     if (homeButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
                     {
                         switched = 1; // Home Screen
+                        score = 0;
+                        if (soundCheck) {
+                            gameMusic.stop();
+                            backgroundMusic.setLoop(true);
+                            backgroundMusic.play();
+                        }
                     }
                     else if (resumeButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
                     {
+                        if (isTimePaused) {
+                            gameTimerClock.restart();
+                            isTimePaused = false;
+                        }
                         switched = 2; // Resume GAME Screen
                     }
                     else if (restartButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
                     {
                         switched = 2; // Restart WITH NEW GRID Screen
-                        for (int i = 0; i < gridSize; i++) {
-                            for (int j = 0; j < gridSize; j++) {
-                                int randomIndex = rand() % (candyTextures.size() - 1);
-                                grid[i][j].setTexture(candyTextures[randomIndex]);
-                                grid[i][j].setPosition(220 + j * tileSize, 230 + i * tileSize);
-                            }
+                        score = 0;
+                        createRandomGrid(grid, candyTextures, tileSize);
+
+                        gameTimerClock.restart();
+                        elapsedPausedTime = sf::Time::Zero;
+                        isTimePaused = false;
+                    }
+                }
+                else if (switched == 6) // GAME SUCCESS
+                {
+                    if (homeButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        switched = 1; // Home Screen
+                        score = 0;
+                        if (soundCheck) {
+                            gameMusic.stop();
+                            backgroundMusic.setLoop(true);
+                            backgroundMusic.play();
                         }
+                    }
+                    else if (restartButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        switched = 2; // Restart WITH NEW GRID Screen
+                        score = 0;
+                        gameMusic.setLoop(true);
+                        gameMusic.play();
+                        createRandomGrid(grid, candyTextures, tileSize);
+
+                        gameTimerClock.restart();
+                        elapsedPausedTime = sf::Time::Zero;
+                        isTimePaused = false;
+                    }
+                }
+                else if (switched == 7) // GAME FAILURE
+                {
+                    if (homeButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        switched = 1; // Home Screen
+                        score = 0;
+                        if (soundCheck) {
+                            gameMusic.stop();
+                            backgroundMusic.setLoop(true);
+                            backgroundMusic.play();
+                        }
+                    }
+                    else if (restartButtonSprite.getGlobalBounds().contains(static_cast<sf::Vector2f>(mousePos)))
+                    {
+                        switched = 2; // Restart WITH NEW GRID Screen
+                        score = 0;
+                        gameMusic.setLoop(true);
+                        gameMusic.play();
+                        createRandomGrid(grid, candyTextures, tileSize);
+
+                        gameTimerClock.restart();
+                        elapsedPausedTime = sf::Time::Zero;
+                        isTimePaused = false;
                     }
                 }
                 else 
@@ -472,19 +609,22 @@ int main()
         }
 
         // Check if 1 second has passed to switch to the background
-        if (switched == 0 && clock.getElapsedTime().asSeconds() >= 1.0f)
+        if (switched == 0 && startMusic.getStatus() == sf::Music::Stopped)
         {
-            switched = 1; // 1 = MENU Screen
-            startMusic.stop();
-            if (soundCheck) {
-                backgroundMusic.setLoop(true);
-                backgroundMusic.play();
+            if (clock.getElapsedTime().asSeconds() >= 0.5f) {
+                switched = 1; // 1 = MENU Screen
+                if (soundCheck) {
+                    backgroundMusic.setLoop(true);
+                    backgroundMusic.play();
+                }
             }
         }
+
 
         window.clear();
 
         float dt = gameClock.restart().asSeconds();
+        sf::Time elapsedTime = isTimePaused ? elapsedPausedTime : elapsedPausedTime + gameTimerClock.getElapsedTime();
         // Draw the appropriate sprite
         switch (switched)
         {
@@ -505,6 +645,47 @@ int main()
         case 2: // Play Screen
             window.draw(gameBackgroundSprite);
             window.draw(pauseButtonSprite);
+            window.draw(scoreBoardSprite);
+            scoreText1.setString("SCORE:" + std::to_string(score));
+            window.draw(scoreText1);
+            window.draw(timerBoardSprite);
+            window.draw(timerText);
+
+
+            // Update timer text
+            remainingTime = maxGameTime - elapsedTime;
+            remainingSeconds = static_cast<int>(remainingTime.asSeconds());
+            minutes = remainingSeconds / 60;
+            seconds = remainingSeconds % 60;
+            timerText.setString("TIME: " + std::to_string(minutes) + ":" + (seconds < 10 ? "0" : "") + std::to_string(seconds));
+
+            if (elapsedTime > maxGameTime && score < targetScore) {
+                std::cout << "Time's up! You failed to reach the target score." << std::endl;
+                gameMusic.stop();
+                failureMusic.play();
+                switched = 7;
+                gameTimerClock.restart();
+            }
+
+            if (score >= 50 && score <= 500) {
+                window.draw(barSprite[0]);
+            }
+            else if (score > 500 && score <= targetScore / 2) {
+                window.draw(barSprite[1]);
+            }
+            else if (score > targetScore / 2 && score <= targetScore - 100) {
+                window.draw(barSprite[2]);
+            }
+            else if (score > targetScore - 100 && score < targetScore) {
+                window.draw(barSprite[3]);
+            }
+            else if (score >= targetScore) {
+                gameMusic.stop();
+                successMusic.play();
+                switched = 6; // Mission Success
+                gameTimerClock.restart();
+            }
+
 
             if (!isRemoving && fallingCandies.empty()) {
                 // Detect matches
@@ -519,6 +700,10 @@ int main()
                     }
                 }
 
+                /*if (!hasMatches) {
+                    createRandomGrid(grid, candyTextures, tileSize);
+                }*/
+
                 if (hasMatches) {
                     // Start removal animation
                     isRemoving = true;
@@ -531,8 +716,16 @@ int main()
                     animateRemoval(grid, matches, dt);
                 }
                 else {
+                    if (soundCheck) {
+                        popMusics[musicIndex].setVolume(100);
+                        popMusics[musicIndex++].play();
+                    }
                     removeMatches(grid, candyTextures, matches, fallingCandies);
+                    scoreText1.setString("SCORE:" + std::to_string(score));
                     isRemoving = false;
+                    if (musicIndex >= popMusics.size()) {
+                        musicIndex = 0;
+                    }
                 }
             }
             else {
@@ -568,8 +761,25 @@ int main()
             window.draw(pauseBGSprite);
             window.draw(homeButtonSprite);
             window.draw(resumeButtonSprite);
+            restartButtonSprite.setPosition(370, 250);
             window.draw(restartButtonSprite);
             //window.draw(settingsButtonSprite);
+
+            break;
+        case 6: // Success
+            window.draw(pauseBGSprite);
+            homeButtonSprite.setPosition(300, 350);
+            window.draw(homeButtonSprite);
+            window.draw(restartButtonSprite);
+            window.draw(successStarSprite);
+
+            break;
+        case 7: // FAILURE
+            window.draw(pauseBGSprite);
+            homeButtonSprite.setPosition(300, 350);
+            window.draw(homeButtonSprite);
+            window.draw(restartButtonSprite);
+            window.draw(failStarSprite);
 
             break;
         }
